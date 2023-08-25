@@ -1,0 +1,161 @@
+#!/usr/bin/python3
+
+import os
+import re
+import sys
+import math
+
+def check_equation_errors(equation):
+    allowed_characters = 'X^0-9+-=*'
+    if len(re.findall('[^X\^0-9\+-=\*]', equation)) > 0:        
+        sys.stderr.write("[?] Invalid equation\n")
+        sys.stderr.flush()
+        sys.exit(1)
+    if equation.count('=') != 1:
+        sys.stderr.write("[?] Wrong number of characters '='\n")
+        sys.stderr.flush()
+        sys.exit(1)
+
+def calculate_reduced_form(equation):
+    # Step 1: Initialize dictionaries for coefficients on both sides of the equation
+    left_side = {}
+    right_side = {}
+
+    # Step 2 and 3: Iterate through the equation terms and extract coefficients and powers
+    side = left_side  # Start with the left side
+    for term in equation:
+        if '*' not in term:
+            term = re.sub('X', '*X', term)
+        if term == '=':
+            side = right_side  # Switch to the right side
+            continue
+    
+        parts = term.split('*')
+        if parts[0] == '-' or parts[0] == '':
+            coefficient = 1 if parts[0] == '' else -1
+        else:
+            coefficient = float(parts[0])
+        power = 0  # Default power if 'X^0'
+        if 'X' in parts[1]:
+            power = int(parts[1][2:])
+        if power in side:
+            side[power] += coefficient
+        else:
+            side[power] = coefficient
+    return (right_side, left_side)
+
+def parsing_equation(equation):
+    equation = equation.strip()  # Remove leading/trailing whitespace
+
+    # TO-DO: Taking equation as input
+    if not equation:
+        sys.stderr.write("[?] Input can't be empty\n")
+        sys.stderr.flush()
+        sys.exit(1)
+    # TO-DO: Simplifying the equation
+    equation = re.sub(r'\s+', '', equation)
+    equation = re.sub(r'\b[-]', '+-', equation).replace('=', '+=+')
+    check_equation_errors(equation)
+
+    # TO-DO: Getting all values of the equation splited
+    equation = equation.split('+')
+
+    # TO-DO: Validating if the equation is valid or no
+    if equation.count(''):
+        sys.stderr.write("[?] Invalid equation\n")
+        sys.stderr.flush()
+        sys.exit(1)
+    return equation
+
+def print_reduced_form(right_side, left_side):
+    # Step 4: Print the reduced form
+    reduced_terms = []
+
+    for power, coefficient in left_side.items():
+        print(power, coefficient)
+        if power in right_side:
+            right_coefficient = right_side[power]
+            right_side.pop(power)
+        else:
+            right_coefficient = 0
+        combined_coefficient = coefficient - right_coefficient
+        formatted_coefficients = [f"{combined_coefficient:.1f}" if combined_coefficient % 1 else str(int(combined_coefficient))]
+        term = f'{formatted_coefficients[0]} * X^{power}'
+        reduced_terms.append(term)
+    for power, coe in right_side.items():
+        formatted_coefficients = [f"{coe:.1f}" if coe % 1 else str(int(coe))]
+        reduced_terms.append(f'{formatted_coefficients[0]} * X^{power}')
+    reduced_equation = ' + '.join(reduced_terms)
+    print(f'Reduced form: {reduced_equation} = 0')
+    return reduced_terms
+
+def check_equation_degree(reduced_equation):
+    equation_dic = {}
+    for term in reduced_equation:
+        if '*' not in term:
+            term = re.sub('X', '*X', term)
+        parts = term.split('*')
+        parts = [item.replace(' ', '') for item in parts]
+        if parts[0] == '-' or parts[0] == '':
+            coefficient = 1 if parts[0] == '' else -1
+        else:
+            coefficient = float(parts[0])
+        power = 0  # Default power if 'X^0'
+        if 'X' in parts[1]:
+            power = int(parts[1][2:])
+        if power in equation_dic:
+            equation_dic[power] += coefficient
+        else:
+            equation_dic[power] = coefficient
+    if max(equation_dic.keys()) > 2:
+        print(f'Polynomial degree: {power}')
+        print(f'The polynomial degree is stricly greater than 2, I can\'t solve.')
+        exit()
+    return equation_dic
+    
+
+def solve_first_equation(equation_dic):
+    a = equation_dic.get(0)
+    b = equation_dic.get(1)
+    print('Polynomial degree: 1')
+    if not a and not b:
+        print('Each real number is a solution')
+    return 0
+
+def solve_quadratic_equation(equation_dic):
+    a = 0 if not equation_dic.get(0) else equation_dic.get(0)
+    b = 0 if not equation_dic.get(1) else equation_dic.get(1)
+    c = 0 if not equation_dic.get(2) else equation_dic.get(2)
+    print('Polynomial degree: 2')
+    D = (b ** 2) - (4 * a * c)
+    print(D)
+    return 0
+
+def solve_equation(equation_dic):
+    print(equation_dic)
+    if max(equation_dic.keys()) == 0:
+        solve_first_equation(equation_dic)
+    else:
+        solve_quadratic_equation(equation_dic)
+
+def main():
+    if len(sys.argv) > 1:
+        equation = sys.argv[1]
+    else:
+        equation = input("Enter equation: ").upper()
+
+    equation = parsing_equation(equation)
+
+    print(equation)
+    
+    right_side, left_side = calculate_reduced_form(equation)
+    print(right_side)
+    print(left_side)
+    reduced_equation = print_reduced_form(right_side, left_side)
+    equation_dic = check_equation_degree(reduced_equation)
+ 
+    solve_equation(equation_dic)
+    
+    
+if __name__ == "__main__":
+    main()
