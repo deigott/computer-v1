@@ -16,33 +16,47 @@ def check_equation_errors(equation):
         sys.stderr.flush()
         sys.exit(1)
 
-def calculate_reduced_form(equation):
-    # Step 1: Initialize dictionaries for coefficients on both sides of the equation
-    left_side = {}
-    right_side = {}
+def get_variable_coefficient(i):
+    if '*' not in i:
+        i = re.sub('X', '*X', i)
+    i = i.split('*')
+    if i[0] == '-' or i[0] == '':
+        coef = 1 if i[0] == '' else -1
+    else:
+        coef = float(i[0])
+    if i[1] == 'X':
+        var = 'X^1'
+    else:
+        var = i[1]
+    return(coef, var)
 
-    # Step 2 and 3: Iterate through the equation terms and extract coefficients and powers
-    side = left_side  # Start with the left side
-    for term in equation:
-        if '*' not in term:
-            term = re.sub('X', '*X', term)
-        if term == '=':
-            side = right_side  # Switch to the right side
+def calculate_reduced_form(equation):
+    oppos = 1
+    dic = {}
+
+    for i in equation:
+        if i == '=':
+            oppos = -1
             continue
-    
-        parts = term.split('*')
-        if parts[0] == '-' or parts[0] == '':
-            coefficient = 1 if parts[0] == '' else -1
+        elif len(re.findall(r'^[-]?[0-9]+[.]?[0-9]*$', i)):
+            coef = float(i)
+            var = 'X^0'
+        elif 'X' in i:
+            # if '.' in i:
+            #     if len(re.findall(r'^[-]?[0-9]+[.][0-9]+[*]?[X][\^0-9]*$', i)) != 1:
+            #         find_error(i)
+            # else:
+            #     if len(re.findall(r'^[-]?[0-9]*[*]?[X][\^0-9]*$', i)) != 1:
+            #         find_error(i)
+            coef, var = get_variable_coefficient(i)
+        if var in dic:
+            new = dic.get(var) + (float(coef) * oppos)
+            dic.update({var: new})
         else:
-            coefficient = float(parts[0])
-        power = 0  # Default power if 'X^0'
-        if 'X' in parts[1]:
-            power = int(parts[1][2:])
-        if power in side:
-            side[power] += coefficient
-        else:
-            side[power] = coefficient
-    return (right_side, left_side)
+            dic.update({var: float(coef) * oppos})
+    dic = dict(sorted(dic.items(), key=lambda x: x[0]))
+    return(dic)
+
 
 def parsing_equation(equation):
     equation = equation.strip()  # Remove leading/trailing whitespace
@@ -90,53 +104,74 @@ def print_reduced_form(right_side, left_side):
     return reduced_terms
 
 def check_equation_degree(reduced_equation):
-    equation_dic = {}
-    for term in reduced_equation:
-        if '*' not in term:
-            term = re.sub('X', '*X', term)
-        parts = term.split('*')
-        parts = [item.replace(' ', '') for item in parts]
-        if parts[0] == '-' or parts[0] == '':
-            coefficient = 1 if parts[0] == '' else -1
-        else:
-            coefficient = float(parts[0])
-        power = 0  # Default power if 'X^0'
-        if 'X' in parts[1]:
-            power = int(parts[1][2:])
-        if power in equation_dic:
-            equation_dic[power] += coefficient
-        else:
-            equation_dic[power] = coefficient
-    if max(equation_dic.keys()) > 2:
+    value = list(reduced_equation.keys())[-1]
+    power = int(re.sub(r'X[\^]', '', value))
+    if power > 2:
         print(f'Polynomial degree: {power}')
         print(f'The polynomial degree is stricly greater than 2, I can\'t solve.')
         exit()
-    return equation_dic
     
 
-def solve_first_equation(equation_dic):
-    a = equation_dic.get(0)
-    b = equation_dic.get(1)
+def solve_first_equation(b, c):
     print('Polynomial degree: 1')
-    if not a and not b:
+    if not b and not c:
         print('Each real number is a solution')
+    elif b == 0 and c != 0:
+        print('The equation has no solutions')
+    elif b != 0:
+        print('The solution is:')
+        solution = float((-1) * c/b)
+        print(solution)
     return 0
 
-def solve_quadratic_equation(equation_dic):
-    a = 0 if not equation_dic.get(0) else equation_dic.get(0)
-    b = 0 if not equation_dic.get(1) else equation_dic.get(1)
-    c = 0 if not equation_dic.get(2) else equation_dic.get(2)
+def print_reduce_equation_form(equation):
+    formatted_terms = []
+    for term, coefficient in equation.items():
+        exponent = term.split('^')[1]
+        formatted_terms.append(f"{coefficient} * X^{exponent}")
+
+    formatted_equation = " + ".join(formatted_terms) + " = 0"
+    print("Reduced form: {0}".format(formatted_equation))
+
+def solve_quadratic_equation(a,b,c):
     print('Polynomial degree: 2')
-    D = (b ** 2) - (4 * a * c)
-    print(D)
+    solution = (b ** 2) - (4 * a * c)
+    if solution == 0:
+        print('Discriminant = 0')
+        print('The solution is: ')
+        print(f"X0 = -{b} / (2 * {a})")
+        print(f"X0 = {- b / (2 * a)}")
+    elif solution > 0:
+        sqt = math.sqrt(solution)
+        x1 = (-b + sqt) / (2 * a)
+        x2 = (-b - sqt) / (2 * a)
+        print('Discriminant is strictly positive, the two solutions are:')
+        print(f"X1 = (-{b} + sqrt({solution})) / (2 * {a})")
+        print(f"X1 = {x1}")
+        
+        print(f"X2 = (-{b} - sqrt({solution})) / (2 * {a})")
+        print(f"X2 = {x2}")
+    else:
+        sqt = math.sqrt(-solution)
+        real_part = -b / (2 * a)
+        imag_part = sqt / (2 * a)
+        print('Discriminant < 0')
+        print('The solutions are complex:')
+        print(f"real_part: -{b} / (2 * {a})")
+        print(f"imag_part: sqrt({-solution} / (2 * {a}))")
+        print(f'{real_part} + {imag_part} * i')
+        print(f'{real_part} - {imag_part} * i')
+
     return 0
 
 def solve_equation(equation_dic):
-    print(equation_dic)
-    if max(equation_dic.keys()) == 0:
-        solve_first_equation(equation_dic)
+    a = equation_dic.get('X^2') if 'X^2' in equation_dic else 0
+    b = equation_dic.get('X^1') if 'X^1' in equation_dic else 0
+    c = equation_dic.get('X^0') if 'X^0' in equation_dic else 0
+    if a == 0:
+        solve_first_equation(b,c)
     else:
-        solve_quadratic_equation(equation_dic)
+        solve_quadratic_equation(a,b,c)
 
 def main():
     if len(sys.argv) > 1:
@@ -144,17 +179,11 @@ def main():
     else:
         equation = input("Enter equation: ").upper()
 
-    equation = parsing_equation(equation)
-
-    print(equation)
-    
-    right_side, left_side = calculate_reduced_form(equation)
-    print(right_side)
-    print(left_side)
-    reduced_equation = print_reduced_form(right_side, left_side)
-    equation_dic = check_equation_degree(reduced_equation)
- 
-    solve_equation(equation_dic)
+    equation = parsing_equation(equation)    
+    reduced_equation = calculate_reduced_form(equation)
+    print_reduce_equation_form(reduced_equation)
+    check_equation_degree(reduced_equation)
+    solve_equation(reduced_equation)
     
     
 if __name__ == "__main__":
